@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hotel Proforma Invoice Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--tx:#1b2430;--mu:#667;--bd:#d5dbe3;--ac:#1f5fa8;--hd:#c9ced6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14181e;--card:#1d232c;--tx:#e8ecf1;--mu:#9aa5b3;--bd:#333c48;--ac:#5aa0ee;--hd:#3a424d}}
+:root[data-theme=dark]{--bg:#14181e;--card:#1d232c;--tx:#e8ecf1;--mu:#9aa5b3;--bd:#333c48;--ac:#5aa0ee;--hd:#3a424d}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px Arial,Tahoma,sans-serif}
+main{max-width:1200px;margin:auto;padding:12px}
+h1{font-size:20px;margin:6px 0}h2{font-size:15px;margin:0 0 10px;color:var(--ac);text-transform:uppercase}
+section{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:14px;margin-bottom:12px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mu);gap:3px}
+input,select{padding:6px;border:1px solid var(--bd);border-radius:5px;background:var(--bg);color:var(--tx);font:inherit;min-width:0}
+button{padding:7px 12px;border:1px solid var(--ac);background:var(--ac);color:#fff;border-radius:5px;cursor:pointer;font:inherit}
+button.s{background:transparent;color:var(--ac)}button.d{background:#b3261e;border-color:#b3261e}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.sc{overflow-x:auto}table{border-collapse:collapse;width:100%}
+th,td{border:1px solid var(--bd);padding:4px;text-align:left;white-space:nowrap}th{background:var(--hd)}
+td input,td select{width:100%}td.n{text-align:right}
+#err{color:#b3261e;font-weight:bold;margin-top:8px;white-space:pre-line}
+#pv{background:#fff;color:#000;padding:16px;border:1px solid var(--bd);overflow-x:auto;font-size:12px}
+#pv table{width:100%}#pv th,#pv td{border:none;border-bottom:1px solid #ddd;color:#000}#pv th{background:#e6e8ec}
+.bt{background:#c9ced6;display:flex;justify-content:space-between;padding:4px 6px;font-weight:bold;margin:8px 0}
+.ig{display:grid;grid-template-columns:1fr 1fr;gap:2px 20px;margin:6px 0}.ig div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #bbb}
+#pv{width:794px;max-width:100%;margin:auto;box-sizing:border-box;min-height:600px}
+thead{display:table-header-group}#pv tr{break-inside:avoid}
+@page{size:A4 portrait;margin:10mm}
+@media print{body *{visibility:hidden}#pv,#pv *{visibility:visible}#pv{position:absolute;left:0;top:0;width:100%;border:none;padding:0;margin:0}}
+.pvx table{width:100%;border-collapse:collapse}.pvx th,.pvx td{border:none;border-bottom:1px solid #ddd;color:#000;padding:4px;text-align:left}.pvx th{background:#e6e8ec}
+</style></head><body><main>
+<h1>Hotel Proforma Invoice Generator / مولّد الفواتير الضريبية</h1>
+<section><h2>Hotel Information</h2><div class="g" id="hf"></div>
+<div class="bar"><label style="flex-direction:row;align-items:center;gap:6px"><span>Logo</span><input type="file" id="lg" accept=".png,.jpg,.jpeg,.webp"></label><button id="sh">Save Hotel Information</button></div>
+<div style="color:var(--mu);font-size:12px;margin-top:6px">Changing hotel details never alters saved invoices (each keeps its own snapshot).</div></section>
+<section><h2>Invoice / Guest / Booking Information</h2><div class="g" id="fm"></div></section>
+<section><h2>Invoice Items &amp; Tax Settings</h2>
+<div style="color:var(--mu);font-size:12px;margin-bottom:6px">Accommodation: Municipality 5% + VAT 15% on (amount + fee) · Municipality: VAT 15% on fee · Other: VAT 0% or 15%</div>
+<div class="sc"><table><thead><tr><th>Date</th><th>Description</th><th>Qty</th><th>Rate</th><th>Tax Type</th><th>VAT %</th><th>Amount</th><th>Municipality Fee</th><th>VAT</th><th>Total</th><th></th></tr></thead><tbody id="its"></tbody></table></div>
+<div class="bar"><button id="ai">+ Add Item</button><button class="s" id="ls">Load sample (Laura Macleod)</button></div></section>
+<div id="err"></div>
+<div class="bar" style="margin-bottom:12px"><button id="sv">Save Invoice</button><button id="gx">Generate Excel</button><button class="s" id="pb">Preview</button><button id="px">Export PDF</button><button class="s" id="ni">New Invoice</button></div>
+<section><h2>Invoice Preview <span id="pg" style="color:var(--mu)"></span></h2><div id="pv"></div></section>
+<section><h2>Saved Invoices</h2><div class="sc"><table><thead><tr><th>Invoice No.</th><th>Company</th><th>Guest</th><th>Date</th><th>Gross Total</th><th>Status</th><th>Actions</th></tr></thead><tbody id="sl"></tbody></table></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const get=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},put=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const HF=[['name','Hotel Name / اسم الفندق'],['addr','Address / العنوان'],['pobox','P.O. Box / ص.ب'],['tel','Telephone / الهاتف'],['vat','VAT Number / الرقم الضريبي'],['cr','Commercial Registration / السجل التجاري'],['email','Email / البريد']];
+const F=[['no','Invoice No. / رقم الفاتورة'],['folio','Folio No. / رقم الفوليو'],['date','Date / التاريخ','date'],['conf','Confirmation No. / رقم الحجز'],['ar','A/R Number / رقم الحسابات'],['guest','Guest Name / اسم النزيل'],['company','Company Name / اسم الشركة'],['cvat','Guest/Company VAT No. / الرقم الضريبي'],['room','Room No. / رقم الغرفة'],['arr','Arrival / الوصول','date'],['dep','Departure / المغادرة','date'],['cashier','Cashier No. / رقم الموظف'],['user','User ID / المستخدم'],['agent','Travel Agent / وكيل السفر'],['member','Membership No. / رقم العضوية'],['email','Email / البريد'],['group','Group Code / كود المجموعة']];
+const today=()=>new Date().toISOString().slice(0,10),fd=d=>d?d.split('-').reverse().join('/'):'';
+let hotel=get('hotelSettings',{name:'Waves Hotel Umluj',addr:'King Faisal Road, 3470, Umluj, Kingdom of Saudi Arabia',pobox:'8272',tel:'+966-920012430',vat:'301066469400003',cr:'',email:'',logo:null,lw:0,lh:0});
+let saved=get('savedInvoices',[]),inv=get('currentInvoice',null)||blank();
+function blank(){const o={id:'i'+Date.now()+Math.random().toString(36).slice(2,6),items:[newItem()],status:'Draft',hotel:{...hotel}};F.forEach(f=>o[f[0]]='');o.date=today();return o}
+function newItem(){return{date:today(),desc:'',qty:1,rate:0,type:'A',vr:0}}
+const money=c=>(c/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const cents=v=>Math.round((+v||0)*100),pc=(x,p)=>Math.floor((x*p+50)/100);
+function calc(it){const a=cents(it.qty*it.rate);let m=0,v=0;
+ if(it.type=='A'){m=pc(a,5);v=pc(a+m,15)}else if(it.type=='M'){m=a;v=pc(m,15)}else v=pc(a,+it.vr||0);
+ const amt=it.type=='M'?0:a;return{a:amt,m,v,t:amt+m+v}}
+function tot(items){const t={a:0,m:0,v:0,t:0};items.forEach(i=>{const c=calc(i);for(const k in t)t[k]+=c[k]});return t}
+const rh=it=>18*Math.max(1,Math.ceil(String(it.desc).length/42));
+function plan(items){const cap=540,res=190;let u=0,br=[];items.forEach((it,i)=>{const h=rh(it);if(u+h>cap&&i>0){br.push(i);u=0}u+=h});if(u+res>cap)br.push(items.length);return br}
+$('#hf').innerHTML=HF.map(f=>`<label>${f[1]}<input data-h="${f[0]}"></label>`).join('');
+$('#fm').innerHTML=F.map(f=>`<label>${f[1]}<input data-f="${f[0]}" type="${f[2]||'text'}"></label>`).join('');
+function fill(){document.querySelectorAll('[data-h]').forEach(e=>e.value=hotel[e.dataset.h]||'');document.querySelectorAll('[data-f]').forEach(e=>e.value=inv[e.dataset.f]||'');rows();upd()}
+function rows(){const T=[['A','Accommodation'],['M','Municipality'],['O','Other']];
+$('#its').innerHTML=inv.items.map((it,i)=>`<tr><td><input type=date value="${it.date}" data-i=${i} data-k=date></td><td><input value="${esc(it.desc)}" data-i=${i} data-k=desc style="min-width:220px"></td><td><input type=number step=any value="${it.qty}" data-i=${i} data-k=qty style="width:70px"></td><td><input type=number step=any value="${it.rate}" data-i=${i} data-k=rate style="width:90px"></td><td><select data-i=${i} data-k=type>${T.map(o=>`<option value=${o[0]} ${it.type==o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></td><td><select data-i=${i} data-k=vr><option value=0 ${it.vr==0?'selected':''}>0%</option><option value=15 ${it.vr==15?'selected':''}>15%</option></select></td><td class=n id=c${i}0></td><td class=n id=c${i}1></td><td class=n id=c${i}2></td><td class=n id=c${i}3></td><td><button class=s data-dup=${i}>⧉</button> <button class=d data-del=${i}>✕</button></td></tr>`).join('')}
+function upd(){inv.items.forEach((it,i)=>{const c=calc(it);['a','m','v','t'].forEach((k,j)=>{const e=$('#c'+i+j);if(e)e.textContent=money(c[k])});const v=document.querySelector(`[data-i="${i}"][data-k=vr]`);if(v)v.disabled=it.type!='O'});put('currentInvoice',inv);prev()}
+function B(items,last,pn,P){const h=inv.hotel,t=tot(inv.items);return `<div style="text-align:center">${h.logo?`<img src="${h.logo}" style="max-height:70px">`:''}</div><div class="bt"><span>SIMPLIFIED TAX INVOICE</span><span dir="rtl">فاتورة ضريبية مبسطة</span></div>
+<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b>${esc(inv.company)}</b><br>${esc(inv.guest)}<br>${esc(inv.agent)}</div><div style="text-align:right">Address Details:<br><b>${esc(h.name)}</b><br>${esc(h.addr)}<br>P.O Box: ${esc(h.pobox)} · Tel: ${esc(h.tel)}<br>VAT No: ${esc(h.vat)}${h.cr?'<br>CR: '+esc(h.cr):''}</div></div>
+<div class="ig">${F.map(f=>`<div><span>${f[1]}</span><b>${esc(f[2]=='date'?fd(inv[f[0]]):inv[f[0]])}</b></div>`).join('')}</div>
+<table><thead><tr><th>DATE التاريخ</th><th>DESCRIPTION البيان</th><th>QTY كمية</th><th>RATE</th><th>AMOUNT</th><th>MUNICIPALITY رسوم بلدية</th><th>VAT ضريبة</th><th>TOTAL</th></tr></thead>${items.map(it=>{const c=calc(it);return`<tr><td>${fd(it.date)}</td><td>${esc(it.desc)}</td><td>${it.qty}</td><td>${money(cents(it.rate))}</td><td>${money(c.a)}</td><td>${money(c.m)}</td><td>${money(c.v)}</td><td>${money(c.t)}</td></tr>`}).join('')}</table>
+${last?`<table style="width:60%;margin:10px 0 0 auto">${[['Amount Net / الصافي قبل احتساب الضريبة',t.a],['Municipality Fee 5% / رسوم بلدية 5%',t.m],['VAT 15% / ضريبة القيمة المضافة 15%',t.v],['Invoice Gross Total Amount Include VAT / المجموع بعد احتساب الضريبة',t.t],['Balance / الرصيد',t.t]].map(r=>`<tr><td>${r[0]}</td><td style="text-align:right"><b>SAR ${money(r[1])}</b></td></tr>`).join('')}</table>
+<p style="font-size:11px">I acknowledge liability in the event that the indicated person, company fails to pay the full, or any part of the charges.<br><span dir="rtl">وأقر بالمسؤولية في حالة عدم قيام الشخص المشار اليه او الشركة بدفع كامل المبلغ، أو أي جزء من التكاليف</span></p><p>Guest Signature ____________________ إمضاء النزيل</p>`:''}<div style="text-align:center;font-size:11px;margin-top:8px">Page ${pn} of ${P} / صفحة ${pn} من ${P}</div>`}
+function prev(){const P=plan(inv.items).length+1;$('#pg').textContent=`— ${P} page${P>1?'s':''} (A4 Portrait)`;$('#pv').innerHTML=B(inv.items,true,1,P)}
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset.h!==undefined){hotel[t.dataset.h]=t.value;return}
+ if(t.dataset.f){inv[t.dataset.f]=t.value;upd()}else if(t.dataset.k)setK(t)});
+document.addEventListener('change',e=>{if(e.target.dataset.k)setK(e.target)});
+function setK(t){const it=inv.items[+t.dataset.i],k=t.dataset.k;it[k]=['qty','rate','vr'].includes(k)?(t.value===''?'':+t.value):t.value;upd()}
+document.addEventListener('click',e=>{const t=e.target;
+ if(t.dataset.dup!==undefined){inv.items.splice(+t.dataset.dup+1,0,{...inv.items[+t.dataset.dup]});rows();upd()}
+ if(t.dataset.del!==undefined){inv.items.splice(+t.dataset.del,1);rows();upd()}
+ const a=t.dataset.a,id=t.dataset.id;if(a){const s=saved.find(x=>x.id==id);
+  if(a=='del'){if(confirm('Delete this invoice permanently?')){saved=saved.filter(x=>x.id!=id);put('savedInvoices',saved);list()}}
+  if(a=='open'||a=='edit'){inv=JSON.parse(JSON.stringify(s));fill();(a=='open'?$('#pv'):$('#fm')).scrollIntoView()}
+  if(a=='dup'){inv=JSON.parse(JSON.stringify(s));inv.id='i'+Date.now();inv.status='Draft';inv.no='';fill();$('#fm').scrollIntoView()}
+  if(a=='xl')gen(s);if(a=='pdf')pdf(s).then(b=>saveFile(fn(s)+'.pdf',b))}});
+$('#ai').onclick=()=>{inv.items.push(newItem());rows();upd()};
+$('#ni').onclick=()=>{inv=blank();fill();$('#err').textContent=''};
+$('#px').onclick=async()=>{if(!validate())return;try{await saveFile(fn(inv)+'.pdf',await pdf(inv))}catch(e){alert('PDF error: '+(e.message||e))}};
+$('#pb').onclick=()=>{upd();$('#pv').scrollIntoView()};
+$('#ls').onclick=()=>{Object.assign(inv,{no:'4',folio:'44',date:'2026-07-18',conf:'1703446',ar:'SR0001',guest:'Laura Macleod',company:'Saudi Royal Aviation',room:'111',arr:'2026-07-03',dep:'2026-07-04',cashier:'189',user:'ALAA',agent:'Laura Macleod'});inv.items=[{date:'2026-07-03',desc:'Accommodation Package / باقات الإقامة',qty:1,rate:550,type:'A',vr:0}];fill()};
+$('#sh').onclick=()=>{if(!hotel.name.trim())return alert('Hotel name is required.');put('hotelSettings',hotel);if(!saved.some(s=>s.id==inv.id))inv.hotel={...hotel};upd();alert('Hotel information saved.')};
+$('#lg').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,400/im.width),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);hotel.logo=c.toDataURL('image/png');hotel.lw=c.width;hotel.lh=c.height;put('hotelSettings',hotel);if(!saved.some(s=>s.id==inv.id))inv.hotel={...hotel};upd()};im.src=r.result};r.readAsDataURL(f)};
+function validate(){const m=[];if(!String(inv.hotel.name).trim())m.push('Hotel name is required.');if(!String(inv.no).trim())m.push('Invoice number is required.');if(!inv.date)m.push('Date is required.');
+ if(!inv.items.length)m.push('Add at least one item.');inv.items.forEach((it,i)=>{if(!(it.qty!==''&&+it.qty>0))m.push(`Item ${i+1}: Please enter a valid quantity.`);if(!(it.rate!==''&&+it.rate>=0))m.push(`Item ${i+1}: Please enter a valid rate.`);if(!it.date)m.push(`Item ${i+1}: date is required.`)});
+ $('#err').textContent=m.join('\n');return!m.length}
+function save(){if(!validate())return false;inv.status='Saved';const k=saved.findIndex(s=>s.id==inv.id),c=JSON.parse(JSON.stringify(inv));k>=0?saved[k]=c:saved.unshift(c);put('savedInvoices',saved);list();return true}
+$('#sv').onclick=()=>{if(save())alert('Invoice saved.')};
+$('#gx').onclick=()=>{if(validate())gen(inv)};
+function list(){$('#sl').innerHTML=saved.map(s=>`<tr><td>${esc(s.no)}</td><td>${esc(s.company)}</td><td>${esc(s.guest)}</td><td>${fd(s.date)}</td><td class=n>SAR ${money(tot(s.items).t)}</td><td>${s.status}</td><td>${[['open','Open'],['edit','Edit'],['dup','Duplicate'],['del','Delete'],['xl','Excel'],['pdf','PDF']].map(a=>`<button class="${a[0]=='del'?'d':'s'}" data-a=${a[0]} data-id=${s.id}>${a[1]}</button>`).join(' ')}</td></tr>`).join('')||'<tr><td colspan=7>No saved invoices.</td></tr>'}
+
+const fn=v=>`Hotel_Invoice_${String(v.no||'draft').replace(/[^\w-]/g,'_')}`;
+async function saveFile(name,data){const d=window.claude&&claude.use?await claude.use('downloads'):null;
+ if(d){try{await d.save({filename:name,data})}catch(e){if(e.code!='declined')alert('Save failed: '+(e.message||e.code))}}
+ else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data]));a.download=name;a.click()}}
+async function pdf(v){const br=plan(v.items),P=br.length+1,cuts=[0,...br,v.items.length],doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),box=document.createElement('div'),old=inv;
+ box.className='pvx';box.style.cssText='position:fixed;left:-9999px;top:0;width:794px;background:#fff;color:#000;padding:30px;box-sizing:border-box;font:12px Arial,Tahoma,sans-serif';document.body.appendChild(box);inv=v;
+ try{for(let p=0;p<P;p++){box.innerHTML=B(v.items.slice(cuts[p],cuts[p+1]),p==P-1,p+1,P);
+  const cv=await html2canvas(box,{scale:2,backgroundColor:'#fff'});let w=210,h=cv.height*w/cv.width;if(h>297){w=w*297/h;h=297}
+  if(p)doc.addPage();doc.addImage(cv.toDataURL('image/jpeg',.92),'JPEG',(210-w)/2,0,w,h)}}finally{inv=old;box.remove()}
+ return doc.output('arraybuffer')}
+async function gen(v){const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('Invoice'),wd=wb.addWorksheet('Data'),wi=wb.addWorksheet('Items'),wst=wb.addWorksheet('Settings'),wl=wb.addWorksheet('Logo'),h=v.hotel,N=v.items.length,AR='Arial',NF='#,##0.00';
+[['Hotel Name',h.name],['Address',h.addr],['P.O. Box',h.pobox],['Telephone',h.tel],['VAT Number',h.vat],['Commercial Registration',h.cr],['Email',h.email],['Municipality Fee Rate',.05],['VAT Rate',.15],['Currency','SAR'],['Invoice Template Version','1.0']].forEach(r=>wst.addRow(r));wst.getColumn(1).width=28;wst.getColumn(2).width=45;wst.getCell('B8').numFmt='0%';wst.getCell('B9').numFmt='0%';
+F.forEach(f=>wd.addRow([f[1],f[2]=='date'?fd(v[f[0]]):v[f[0]]]));wd.getColumn(1).width=38;wd.getColumn(2).width=40;
+wi.addRow(['Date','Description','Quantity','Rate','Amount','Tax Type','Municipality Fee','VAT','Total','VAT % (Other)']).font={bold:true};
+const TN={A:'Accommodation',M:'Municipality',O:'Other'};
+v.items.forEach((it,i)=>{const r=i+2,c=calc(it);wi.addRow([fd(it.date),it.desc,+it.qty,+it.rate,
+{formula:`ROUND(C${r}*D${r},2)`,result:cents(it.qty*it.rate)/100},TN[it.type],
+{formula:`IF(F${r}="Accommodation",ROUND(E${r}*Settings!$B$8,2),IF(F${r}="Municipality",E${r},0))`,result:c.m/100},
+{formula:`IF(F${r}="Accommodation",ROUND((E${r}+G${r})*Settings!$B$9,2),IF(F${r}="Municipality",ROUND(G${r}*Settings!$B$9,2),ROUND(E${r}*J${r},2)))`,result:c.v/100},
+{formula:`IF(F${r}="Municipality",0,E${r})+G${r}+H${r}`,result:c.t/100},it.type=='O'?(+it.vr||0)/100:0]);
+['D','E','G','H','I'].forEach(L=>wi.getCell(L+r).numFmt=NF);wi.getCell('J'+r).numFmt='0%'});
+[12,40,10,12,14,16,16,14,14,14].forEach((w,i)=>wi.getColumn(i+1).width=w);
+[12,38,8,11,12,13,12,13].forEach((w,i)=>ws.getColumn(i+1).width=w);
+const bd={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}},FL={type:'pattern',pattern:'solid',fgColor:{argb:'FFC9CED6'}};
+const m2=(rng,val,o={})=>{ws.mergeCells(rng);const c=ws.getCell(rng.split(':')[0]);c.value=val;c.font={name:AR,size:o.s||9,bold:!!o.b};c.alignment={horizontal:o.h||'left',vertical:'middle',wrapText:true};if(o.f)c.fill=FL;if(o.bd)c.border=bd;return c};
+for(let r=1;r<=4;r++)ws.getRow(r).height=18;m2('A1:H4','');
+if(h.logo){const id=wb.addImage({base64:h.logo,extension:'png'}),ht=66,w=ht*(h.lw/h.lh||2);ws.addImage(id,{tl:{col:1.9,row:0.1},ext:{width:w,height:ht}});wl.addImage(id,{tl:{col:0,row:1},ext:{width:w*1.5,height:ht*1.5}})}wl.getCell('A1').value='Hotel Logo';
+ws.getRow(5).height=20;m2('A5:D5','SIMPLIFIED TAX INVOICE',{b:1,s:11,f:1});m2('E5:H5','فاتورة ضريبية مبسطة',{b:1,s:11,f:1,h:'right'}).alignment={horizontal:'right',readingOrder:'rtl',vertical:'middle'};
+for(let r=6;r<=9;r++)ws.getRow(r).height=15;
+m2('A6:D9',{formula:`"Co. Name / اسم الشركة: "&Data!B7&CHAR(10)&"Guest: "&Data!B6&CHAR(10)&"Travel Agent / وكيل السفر: "&Data!B14`,result:`Co. Name / اسم الشركة: ${v.company}\nGuest: ${v.guest}\nTravel Agent / وكيل السفر: ${v.agent}`},{b:1,s:10});
+m2('E6:H9',`Address Details:\n${h.name}\nP.O Box: ${h.pobox}, ${h.addr}\nTel: ${h.tel}  VAT No: ${h.vat}${h.cr?'  CR: '+h.cr:''}`,{h:'right'});
+F.forEach((f,i)=>{const r=10+(i<9?i:i-9),L=i<9?['A','B','C','D']:['E','F','G','H'];ws.getRow(r).height=15;
+ m2(`${L[0]}${r}:${L[1]}${r}`,f[1],{b:1,bd:1});m2(`${L[2]}${r}:${L[3]}${r}`,{formula:`Data!B${i+1}`,result:(f[2]=='date'?fd(v[f[0]]):v[f[0]])||''},{bd:1})});
+ws.getRow(19).height=30;['DATE\nالتاريخ','DESCRIPTION\nالبيان','QTY\nكمية','RATE\nالسعر','AMOUNT\nالمبلغ','MUNICIPALITY\nرسوم بلدية','VAT\nالضريبة','TOTAL\nالمجموع'].forEach((t,i)=>{const c=ws.getCell(19,i+1);c.value=t;c.font={name:AR,size:9,bold:true};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.fill=FL;c.border=bd});
+const HR=19,S=['A','B','C','D','E','G','H','I'];
+v.items.forEach((it,i)=>{const r=HR+1+i,ir=i+2,c=calc(it),vals=[fd(it.date),it.desc,+it.qty,+it.rate,cents(it.qty*it.rate)/100,c.m/100,c.v/100,c.t/100];
+ ws.getRow(r).height=rh(it);S.forEach((L,j)=>{const cell=ws.getCell(r,j+1);cell.value={formula:`Items!${L}${ir}`,result:vals[j]};cell.font={name:AR,size:9};cell.border=bd;cell.alignment={vertical:'middle',wrapText:j==1,horizontal:j<2?'left':'right'};if(j>=3)cell.numFmt=NF})});
+let r=HR+N;const e=r,rg=L=>`Items!${L}2:${L}${N+1}`,t=tot(v.items);
+r++;ws.getRow(r).height=18;m2(`A${r}:D${r}`,'Total / المجموع',{b:1,h:'right'});[['E',t.a],['F',t.m],['G',t.v],['H',t.t]].forEach(([L,x])=>{const c=ws.getCell(L+r);c.value={formula:`SUM(${L}${HR+1}:${L}${e})`,result:x/100};c.numFmt=NF;c.font={name:AR,size:9,bold:true};c.border=bd});
+const tr=(lab,fm,res,b)=>{r++;ws.getRow(r).height=18;m2(`A${r}:F${r}`,lab,{b,h:'right',s:10});m2(`G${r}:H${r}`,{formula:`"SAR "&TEXT(${fm},"#,##0.00")`,result:'SAR '+money(res)},{b,h:'right',s:10,bd:1})};
+tr('Amount Net / الصافي قبل احتساب الضريبة',`SUMIF(${rg('F')},"<>Municipality",${rg('E')})`,t.a);
+tr('Municipality Fee 5% / رسوم بلدية 5%',`SUM(${rg('G')})`,t.m);
+tr('VAT 15% / ضريبة القيمة المضافة 15%',`SUM(${rg('H')})`,t.v);
+tr('INVOICE GROSS TOTAL AMOUNT INCLUDE VAT / المجموع بعد احتساب الضريبة',`SUM(${rg('I')})`,t.t,1);
+tr('Balance / الرصيد',`SUM(${rg('I')})`,t.t,1);
+r+=2;ws.getRow(r).height=42;m2(`A${r}:E${r}`,'I acknowledge liability in the event that the indicated person, company fails to pay the full, or any part of the charges.\nوأقر بالمسؤولية في حالة عدم قيام الشخص المشار اليه او الشركة بدفع كامل المبلغ، أو أي جزء من التكاليف',{s:8});
+r+=2;ws.getRow(r).height=24;m2(`A${r}:H${r}`,'Guest Signature ______________________________   إمضاء النزيل',{h:'right',s:10});
+plan(v.items).forEach(i=>ws.getRow(HR+i).addPageBreak());
+ws.pageSetup={paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:.4,right:.4,top:.5,bottom:.6,header:.3,footer:.3},printTitlesRow:`1:${HR}`,printArea:`A1:H${r}`};
+ws.headerFooter={oddFooter:'&C&"Arial,Regular"&9Page &P of &N / صفحة &P من &N'};ws.views=[{showGridLines:false}];
+await saveFile(fn(v)+'.xlsx',await wb.xlsx.writeBuffer())}
+fill();list();
+</script></body></html>
